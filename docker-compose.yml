@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: salary-man-db
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${DB_PASSWORD}
+      - MSSQL_PID=Express
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    networks:
+      - salary-man-network
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${DB_PASSWORD}" -C -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: salary-man-api
+    environment:
+      - DATABASE_URL=sqlserver://${DB_HOST}:${DB_PORT};database=${DB_NAME};user=sa;password=${DB_PASSWORD};encrypt=true;trustServerCertificate=true
+      - PORT=3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      mssql:
+        condition: service_healthy
+    networks:
+      - salary-man-network
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: salary-man-web
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      - salary-man-network
+
+volumes:
+  mssql-data:
+
+networks:
+  salary-man-network:
+    driver: bridge
+

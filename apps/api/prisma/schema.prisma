@@ -1,0 +1,60 @@
+// Prisma Schema for salary-man
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+  // Windows Authentication: ใช้ integratedSecurity=true
+}
+
+model Account {
+  id          String        @id @default(uuid())
+  name        String        @db.NVarChar(100)
+  type        String        @db.NVarChar(20) // CASH, CREDIT_CARD, BANK_ACCOUNT, CARRY_OVER
+  isActive    Boolean       @default(true)
+  sortOrder   Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  transactions Transaction[]
+
+  @@map("accounts")
+}
+
+// AccountType values: CASH, CREDIT_CARD, BANK_ACCOUNT, CARRY_OVER
+
+model Transaction {
+  id                  String   @id @default(uuid())
+  txDate              DateTime @db.Date
+  postedYear          Int
+  postedMonth         Int      // 1-12
+  amount              Decimal  @db.Decimal(18, 2)
+  description         String   @db.NVarChar(255)
+  
+  accountId           String
+  account             Account  @relation(fields: [accountId], references: [id])
+  
+  // Installment fields
+  installmentGroupId  String?
+  installmentIndex    Int?     // current installment (1, 2, 3...)
+  installmentTotal    Int?     // total installments (10, 12...)
+  
+  // Carry over reference
+  isCarryOver         Boolean  @default(false)
+  carryFromYear       Int?
+  carryFromMonth      Int?
+  
+  // Partial payment tracking
+  isPartiallyPaid     Boolean  @default(false)
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([postedYear, postedMonth])
+  @@index([accountId, postedYear, postedMonth])
+  @@index([txDate])
+  @@index([installmentGroupId])
+  @@map("transactions")
+}

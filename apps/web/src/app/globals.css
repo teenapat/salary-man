@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Zen+Maru+Gothic:wght@400;500;700&display=swap');
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply selection:bg-sm-accent/30;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-sm-bg;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-sm-border rounded-full hover:bg-sm-text-muted;
+  }
+}
+
+@layer components {
+
+  /* Card styles */
+  .card {
+    @apply bg-sm-surface rounded-2xl border border-sm-border/50 p-4;
+  }
+
+  .card-hover {
+    @apply card transition-all duration-200 hover:border-sm-accent/30 hover:shadow-glow;
+  }
+
+  /* Amount display */
+  .amount-income {
+    @apply text-sm-income font-mono font-semibold;
+  }
+
+  .amount-expense {
+    @apply text-sm-expense font-mono font-semibold;
+  }
+
+  .amount-neutral {
+    @apply text-sm-text font-mono font-semibold;
+  }
+
+  /* Button styles */
+  .btn {
+    @apply px-4 py-2 rounded-xl font-medium transition-all duration-200 active:scale-95;
+  }
+
+  .btn-primary {
+    @apply btn bg-sm-accent text-white hover:shadow-glow;
+  }
+
+  .btn-secondary {
+    @apply btn bg-sm-surface-alt border border-sm-border text-sm-text hover:border-sm-accent/50;
+  }
+
+  .btn-ghost {
+    @apply btn text-sm-text-muted hover:text-sm-text hover:bg-sm-surface-alt;
+  }
+
+  /* Input styles */
+  .input {
+    @apply w-full bg-sm-surface-alt border border-sm-border rounded-xl px-4 py-3 text-sm-text placeholder:text-sm-text-muted focus:outline-none focus:border-sm-accent/50 focus:ring-1 focus:ring-sm-accent/30 transition-all duration-200;
+  }
+
+  /* Tab styles */
+  .tab {
+    @apply px-4 py-2 text-sm-text-muted font-medium transition-all duration-200;
+  }
+
+  .tab-active {
+    @apply tab text-sm-accent border-b-2 border-sm-accent;
+  }
+
+  /* Badge styles */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-income {
+    @apply badge bg-sm-income/20 text-sm-income;
+  }
+
+  .badge-expense {
+    @apply badge bg-sm-expense/20 text-sm-expense;
+  }
+
+  .badge-installment {
+    @apply badge bg-sm-warning/20 text-sm-warning;
+  }
+}
+
+@layer utilities {
+
+  /* Glass effect */
+  .glass {
+    @apply bg-sm-surface/80 backdrop-blur-xl;
+  }
+
+  /* Gradient backgrounds */
+  .gradient-radial {
+    background: radial-gradient(circle at top, rgba(255, 107, 107, 0.1) 0%, transparent 50%);
+  }
+
+  /* Safe area insets for mobile */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+
+  /* Number formatting */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
