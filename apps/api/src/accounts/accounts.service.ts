@@ -1,35 +1,54 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateAccountDto, UpdateAccountDto, AccountType } from './dto';
+import { CreateAccountDto, UpdateAccountDto } from './dto';
 
 @Injectable()
 export class AccountsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll() {
+  async findAll(userId: string) {
     return this.prisma.account.findMany({
-      where: { isActive: true },
+      where: { userId, isActive: true },
       orderBy: { sortOrder: 'asc' },
     });
   }
 
-  async findOne(id: string) {
-    return this.prisma.account.findUnique({
+  async findOne(id: string, userId: string) {
+    const account = await this.prisma.account.findUnique({
       where: { id },
     });
+
+    if (!account) {
+      throw new NotFoundException('Account not found');
+    }
+
+    if (account.userId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    return account;
   }
 
-  async create(dto: CreateAccountDto) {
+  async create(userId: string, dto: CreateAccountDto) {
+    // Get max sort order
+    const maxSort = await this.prisma.account.aggregate({
+      where: { userId },
+      _max: { sortOrder: true },
+    });
+
     return this.prisma.account.create({
       data: {
         name: dto.name,
         type: dto.type,
-        sortOrder: dto.sortOrder ?? 0,
+        sortOrder: dto.sortOrder ?? (maxSort._max.sortOrder || 0) + 1,
+        userId,
       },
     });
   }
 
-  async update(id: string, dto: UpdateAccountDto) {
+  async update(id: string, userId: string, dto: UpdateAccountDto) {
+    await this.findOne(id, userId); // Check ownership
+
     return this.prisma.account.update({
       where: { id },
       data: {
@@ -41,33 +60,44 @@ export class AccountsService {
     });
   }
 
-  async remove(id: string) {
-    // Soft delete - just mark as inactive
-    return this.prisma.account.update({
+  async remove(id: string, userId: string) {
+    const account = await this.findOne(id, userId);
+
+    // Don't allow deleting CARRY_OVER account
+    if (account.type === 'CARRY_OVER') {
+      throw new ForbiddenException('Cannot delete carry-over account');
+    }
+
+    // Check if account has transactions
+    const txCount = await this.prisma.transaction.count({
+      where: { accountId: id },
+    });
+
+    if (txCount > 0) {
+      // Soft delete - just mark as inactive
+      return this.prisma.account.update({
+        where: { id },
+        data: { isActive: false },
+      });
+    }
+
+    // Hard delete if no transactions
+    return this.prisma.account.delete({
       where: { id },
-      data: { isActive: false },
     });
   }
 
-  async seed() {
-    const defaultAccounts = [
-      { name: 'เงินสด', type: 'CASH', sortOrder: 0 },
-      { name: 'JCB', type: 'CREDIT_CARD', sortOrder: 1 },
-      { name: 'Card X Master Card', type: 'CREDIT_CARD', sortOrder: 2 },
-      { name: 'Card X Speedy Cash', type: 'CREDIT_CARD', sortOrder: 3 },
-      { name: 'KTC', type: 'CREDIT_CARD', sortOrder: 4 },
-      { name: 'KTC PROUD', type: 'CREDIT_CARD', sortOrder: 5 },
-      { name: 'ย้ายยอด', type: 'CARRY_OVER', sortOrder: 99 },
-    ];
+  async reorder(userId: string, accountIds: string[]) {
+    // Update sort order based on array position
+    const updates = accountIds.map((id, index) =>
+      this.prisma.account.updateMany({
+        where: { id, userId },
+        data: { sortOrder: index },
+      }),
+    );
 
-    const existing = await this.prisma.account.count();
-    if (existing === 0) {
-      await this.prisma.account.createMany({
-        data: defaultAccounts,
-      });
-      return { message: 'Seeded default accounts', count: defaultAccounts.length };
-    }
-    return { message: 'Accounts already exist', count: existing };
+    await this.prisma.$transaction(updates);
+
+    return this.findAll(userId);
   }
 }
-

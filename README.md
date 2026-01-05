@@ -62,16 +62,35 @@ cd ../web
 npm install
 ```
 
-### 2. Configure Database
+### 2. Configure Environment
 
 Create `apps/api/.env` file:
 
 ```env
-# SQL Server with Windows Authentication
+# Database - SQL Server with Windows Authentication
 DATABASE_URL="sqlserver://YOUR-PC-NAME%5CSQLEXPRESS;database=salary_man;integratedSecurity=true;trustServerCertificate=true"
+
+# Google OAuth - Get from https://console.cloud.google.com/apis/credentials
+GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="your-client-secret"
+GOOGLE_CALLBACK_URL="http://localhost:3001/auth/google/callback"
+
+# JWT Secret
+JWT_SECRET="your-super-secret-jwt-key"
+
+# Frontend URL
+FRONTEND_URL="http://localhost:3000"
 ```
 
 > ⚠️ Replace `YOUR-PC-NAME` with your actual computer name. Use `%5C` instead of `\` for the SQL Server instance separator.
+
+#### Setting up Google OAuth:
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing
+3. Go to APIs & Services → Credentials
+4. Create OAuth 2.0 Client ID (Web application)
+5. Add `http://localhost:3001/auth/google/callback` to Authorized redirect URIs
+6. Copy Client ID and Client Secret to `.env`
 
 ### 3. Setup Database
 
@@ -85,22 +104,7 @@ npx prisma db push
 npx prisma generate
 ```
 
-### 4. Seed Initial Data
-
-Start the API first, then call the seed endpoint:
-
-```bash
-# In apps/api
-npm run start:dev
-```
-
-Then in another terminal or browser:
-```bash
-# Seed accounts (Cash, Credit Cards, etc.)
-curl -X POST http://localhost:3001/accounts/seed
-```
-
-### 5. Start Development Servers
+### 4. Start Development Servers
 
 **Terminal 1 - API (Port 3001):**
 ```bash
@@ -114,17 +118,18 @@ cd apps/web
 npm run dev
 ```
 
-### 6. Open the App
+### 5. Open the App
 
 Visit [http://localhost:3000](http://localhost:3000) on your browser or mobile device.
 
 ## 📱 Features
 
 ### Core Features
+- ✅ **Google Login** - Secure authentication with Google OAuth
 - ✅ **Dashboard** - Monthly summary with income/expense/net
 - ✅ **Add Transaction** - Quick entry with account selection
 - ✅ **Installment Support** - Create multi-month installment entries
-- ✅ **Account Management** - View per-card/account summaries
+- ✅ **Account Management** - Add/edit/delete cards & accounts
 - ✅ **Timeline View** - Recent transactions grouped by date
 - ✅ **Swipe to Delete** - Mobile-friendly transaction deletion
 - ✅ **Carry Over** - Move deficit to next month

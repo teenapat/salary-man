@@ -1,15 +1,36 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateTransactionDto, UpdateTransactionDto, CreateInstallmentDto } from './dto';
-import { v4 as uuidv4 } from 'uuid';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Decimal } from '@prisma/client/runtime/library';
+import { v4 as uuidv4 } from 'uuid';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateInstallmentDto, CreateTransactionDto, UpdateTransactionDto } from './dto';
 
 @Injectable()
 export class TransactionsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(year?: number, month?: number) {
-    const where: any = {};
+  // Helper to get user's account IDs
+  private async getUserAccountIds(userId: string): Promise<string[]> {
+    const accounts = await this.prisma.account.findMany({
+      where: { userId },
+      select: { id: true },
+    });
+    return accounts.map((a) => a.id);
+  }
+
+  // Helper to verify account ownership
+  private async verifyAccountOwnership(accountId: string, userId: string) {
+    const account = await this.prisma.account.findUnique({
+      where: { id: accountId },
+    });
+    if (!account || account.userId !== userId) {
+      throw new ForbiddenException('Access denied to this account');
+    }
+    return account;
+  }
+
+  async findAll(userId: string, year?: number, month?: number) {
+    const accountIds = await this.getUserAccountIds(userId);
+    const where: any = { accountId: { in: accountIds } };
     if (year) where.postedYear = year;
     if (month) where.postedMonth = month;
 
@@ -20,7 +41,9 @@ export class TransactionsService {
     });
   }
 
-  async findByAccount(accountId: string, year?: number, month?: number) {
+  async findByAccount(userId: string, accountId: string, year?: number, month?: number) {
+    await this.verifyAccountOwnership(accountId, userId);
+    
     const where: any = { accountId };
     if (year) where.postedYear = year;
     if (month) where.postedMonth = month;
@@ -32,9 +55,12 @@ export class TransactionsService {
     });
   }
 
-  async findByDate(startDate: Date, endDate: Date) {
+  async findByDate(userId: string, startDate: Date, endDate: Date) {
+    const accountIds = await this.getUserAccountIds(userId);
+    
     return this.prisma.transaction.findMany({
       where: {
+        accountId: { in: accountIds },
         txDate: {
           gte: startDate,
           lte: endDate,
@@ -56,7 +82,17 @@ export class TransactionsService {
     return transaction;
   }
 
-  async create(dto: CreateTransactionDto) {
+  async findOneWithAuth(userId: string, id: string) {
+    const transaction = await this.findOne(id);
+    
+    // Verify ownership via account
+    await this.verifyAccountOwnership(transaction.accountId, userId);
+    
+    return transaction;
+  }
+
+  async create(userId: string, dto: CreateTransactionDto) {
+    await this.verifyAccountOwnership(dto.accountId, userId);
     const txDate = new Date(dto.txDate);
     
     return this.prisma.transaction.create({
@@ -72,7 +108,8 @@ export class TransactionsService {
     });
   }
 
-  async createInstallment(dto: CreateInstallmentDto) {
+  async createInstallment(userId: string, dto: CreateInstallmentDto) {
+    await this.verifyAccountOwnership(dto.accountId, userId);
     const groupId = uuidv4();
     const txDate = new Date(dto.txDate);
     const transactions = [];
@@ -111,8 +148,11 @@ export class TransactionsService {
     });
   }
 
-  async update(id: string, dto: UpdateTransactionDto) {
-    await this.findOne(id); // Check if exists
+  async update(userId: string, id: string, dto: UpdateTransactionDto) {
+    const tx = await this.findOne(id);
+    
+    // Verify ownership via account
+    await this.verifyAccountOwnership(tx.accountId, userId);
 
     return this.prisma.transaction.update({
       where: { id },
@@ -128,27 +168,43 @@ export class TransactionsService {
     });
   }
 
-  async remove(id: string) {
-    await this.findOne(id); // Check if exists
+  async remove(userId: string, id: string) {
+    const tx = await this.findOne(id);
+    
+    // Verify ownership via account
+    await this.verifyAccountOwnership(tx.accountId, userId);
+    
     return this.prisma.transaction.delete({
       where: { id },
     });
   }
 
-  async removeInstallmentGroup(groupId: string) {
+  async removeInstallmentGroup(userId: string, groupId: string) {
+    // Get one transaction from the group to verify ownership
+    const tx = await this.prisma.transaction.findFirst({
+      where: { installmentGroupId: groupId },
+    });
+    
+    if (!tx) {
+      throw new NotFoundException('Installment group not found');
+    }
+    
+    // Verify ownership via account
+    await this.verifyAccountOwnership(tx.accountId, userId);
+    
     return this.prisma.transaction.deleteMany({
       where: { installmentGroupId: groupId },
     });
   }
 
-  async carryOver(fromYear: number, fromMonth: number, amount: number) {
-    // Find carry over account
+  async carryOver(userId: string, fromYear: number, fromMonth: number, amount: number) {
+    // Find carry over account for this user
     const carryAccount = await this.prisma.account.findFirst({
-      where: { type: 'CARRY_OVER' },
+      where: { type: 'CARRY_OVER', userId },
     });
 
     if (!carryAccount) {
-      throw new NotFoundException('Carry over account not found. Please seed accounts first.');
+      throw new NotFoundException('Carry over account not found. Please create one first.');
     }
 
     // Calculate next month
@@ -182,12 +238,16 @@ export class TransactionsService {
   }
 
   async partialPayment(
+    userId: string,
     transactionId: string,
     paidAmount: number,
     interestAmount: number = 0,
   ) {
     // Get original transaction
     const original = await this.findOne(transactionId);
+    
+    // Verify ownership via account
+    await this.verifyAccountOwnership(original.accountId, userId);
     
     // Check if already partially paid
     if (original.isPartiallyPaid) {

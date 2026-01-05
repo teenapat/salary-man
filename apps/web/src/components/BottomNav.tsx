@@ -9,11 +9,13 @@ import {
   CreditCardIcon,
   ClockIcon,
   PlusCircleIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
   CreditCardIcon as CreditCardIconSolid,
   ClockIcon as ClockIconSolid,
+  Cog6ToothIcon as Cog6ToothIconSolid,
 } from '@heroicons/react/24/solid';
 
 const navItems = [
@@ -21,6 +23,7 @@ const navItems = [
   { href: '/accounts', label: 'บัตร', icon: CreditCardIcon, activeIcon: CreditCardIconSolid },
   { href: '/add', label: '', icon: PlusCircleIcon, activeIcon: PlusCircleIcon, isAdd: true },
   { href: '/timeline', label: 'รายการ', icon: ClockIcon, activeIcon: ClockIconSolid },
+  { href: '/settings', label: 'ตั้งค่า', icon: Cog6ToothIcon, activeIcon: Cog6ToothIconSolid },
 ];
 
 export function BottomNav() {
@@ -56,16 +59,16 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex flex-col items-center gap-1 px-4 py-2 transition-colors',
+                'flex flex-col items-center gap-1 px-3 py-2 transition-colors',
                 isActive ? 'text-sm-accent' : 'text-sm-text-muted'
               )}
             >
-              <Icon className="w-6 h-6" />
-              <span className="text-xs font-medium">{item.label}</span>
+              <Icon className="w-5 h-5" />
+              <span className="text-[10px] font-medium">{item.label}</span>
               {isActive && (
                 <motion.div
                   layoutId="activeTab"
-                  className="absolute bottom-0 w-12 h-0.5 bg-sm-accent rounded-full"
+                  className="absolute bottom-0 w-10 h-0.5 bg-sm-accent rounded-full"
                 />
               )}
             </Link>
@@ -75,4 +78,3 @@ export function BottomNav() {
     </nav>
   );
 }
-

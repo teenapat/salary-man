@@ -99,7 +99,7 @@ export default function TimelinePage() {
   };
 
   return (
-    <main className="pb-24 min-h-screen">
+    <main className="pb-24 min-h-screen gradient-radial">
       <div className="max-w-lg mx-auto px-4 safe-top">
         {/* Header */}
         <div className="pt-6 pb-4">

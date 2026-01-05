@@ -10,16 +10,37 @@ datasource db {
   // Windows Authentication: ใช้ integratedSecurity=true
 }
 
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique @db.NVarChar(255)
+  name          String?   @db.NVarChar(100)
+  picture       String?   @db.NVarChar(500)
+  googleId      String    @unique @db.NVarChar(100)
+  
+  accounts      Account[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("users")
+}
+
 model Account {
   id          String        @id @default(uuid())
   name        String        @db.NVarChar(100)
   type        String        @db.NVarChar(20) // CASH, CREDIT_CARD, BANK_ACCOUNT, CARRY_OVER
   isActive    Boolean       @default(true)
   sortOrder   Int           @default(0)
+  
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  
+  transactions Transaction[]
+  
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
-  transactions Transaction[]
 
+  @@index([userId])
   @@map("accounts")
 }
 
@@ -34,7 +55,7 @@ model Transaction {
   description         String   @db.NVarChar(255)
   
   accountId           String
-  account             Account  @relation(fields: [accountId], references: [id])
+  account             Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
   
   // Installment fields
   installmentGroupId  String?

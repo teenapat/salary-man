@@ -1,16 +1,17 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
+  Param,
   Post,
   Put,
-  Delete,
-  Body,
-  Param,
   Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CarryOverDto, CreateInstallmentDto, CreateTransactionDto, PartialPaymentDto, UpdateTransactionDto } from './dto';
 import { TransactionsService } from './transactions.service';
-import { CreateTransactionDto, UpdateTransactionDto, CreateInstallmentDto, CarryOverDto, PartialPaymentDto } from './dto';
 
 @ApiTags('transactions')
 @Controller('transactions')
@@ -22,10 +23,11 @@ export class TransactionsController {
   @ApiQuery({ name: 'year', required: false, type: Number })
   @ApiQuery({ name: 'month', required: false, type: Number })
   findAll(
+    @CurrentUser() user: any,
     @Query('year') year?: number,
     @Query('month') month?: number,
   ) {
-    return this.transactionsService.findAll(year, month);
+    return this.transactionsService.findAll(user.id, year, month);
   }
 
   @Get('account/:accountId')
@@ -33,11 +35,12 @@ export class TransactionsController {
   @ApiQuery({ name: 'year', required: false, type: Number })
   @ApiQuery({ name: 'month', required: false, type: Number })
   findByAccount(
+    @CurrentUser() user: any,
     @Param('accountId') accountId: string,
     @Query('year') year?: number,
     @Query('month') month?: number,
   ) {
-    return this.transactionsService.findByAccount(accountId, year, month);
+    return this.transactionsService.findByAccount(user.id, accountId, year, month);
   }
 
   @Get('timeline')
@@ -45,10 +48,12 @@ export class TransactionsController {
   @ApiQuery({ name: 'startDate', required: true, type: String })
   @ApiQuery({ name: 'endDate', required: true, type: String })
   findByDate(
+    @CurrentUser() user: any,
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
   ) {
     return this.transactionsService.findByDate(
+      user.id,
       new Date(startDate),
       new Date(endDate),
     );
@@ -56,26 +61,27 @@ export class TransactionsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get transaction by ID' })
-  findOne(@Param('id') id: string) {
-    return this.transactionsService.findOne(id);
+  findOne(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.transactionsService.findOneWithAuth(user.id, id);
   }
 
   @Post()
   @ApiOperation({ summary: 'Create new transaction' })
-  create(@Body() dto: CreateTransactionDto) {
-    return this.transactionsService.create(dto);
+  create(@CurrentUser() user: any, @Body() dto: CreateTransactionDto) {
+    return this.transactionsService.create(user.id, dto);
   }
 
   @Post('installment')
   @ApiOperation({ summary: 'Create installment transactions' })
-  createInstallment(@Body() dto: CreateInstallmentDto) {
-    return this.transactionsService.createInstallment(dto);
+  createInstallment(@CurrentUser() user: any, @Body() dto: CreateInstallmentDto) {
+    return this.transactionsService.createInstallment(user.id, dto);
   }
 
   @Post('carry-over')
   @ApiOperation({ summary: 'Create carry over transaction' })
-  carryOver(@Body() dto: CarryOverDto) {
+  carryOver(@CurrentUser() user: any, @Body() dto: CarryOverDto) {
     return this.transactionsService.carryOver(
+      user.id,
       dto.fromYear,
       dto.fromMonth,
       dto.amount,
@@ -84,8 +90,9 @@ export class TransactionsController {
 
   @Post('partial-payment')
   @ApiOperation({ summary: 'Record partial payment and carry remaining to next month' })
-  partialPayment(@Body() dto: PartialPaymentDto) {
+  partialPayment(@CurrentUser() user: any, @Body() dto: PartialPaymentDto) {
     return this.transactionsService.partialPayment(
+      user.id,
       dto.transactionId,
       dto.paidAmount,
       dto.interestAmount || 0,
@@ -94,20 +101,23 @@ export class TransactionsController {
 
   @Put(':id')
   @ApiOperation({ summary: 'Update transaction' })
-  update(@Param('id') id: string, @Body() dto: UpdateTransactionDto) {
-    return this.transactionsService.update(id, dto);
+  update(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateTransactionDto,
+  ) {
+    return this.transactionsService.update(user.id, id, dto);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete transaction' })
-  remove(@Param('id') id: string) {
-    return this.transactionsService.remove(id);
+  remove(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.transactionsService.remove(user.id, id);
   }
 
   @Delete('installment-group/:groupId')
   @ApiOperation({ summary: 'Delete all transactions in installment group' })
-  removeInstallmentGroup(@Param('groupId') groupId: string) {
-    return this.transactionsService.removeInstallmentGroup(groupId);
+  removeInstallmentGroup(@CurrentUser() user: any, @Param('groupId') groupId: string) {
+    return this.transactionsService.removeInstallmentGroup(user.id, groupId);
   }
 }
-

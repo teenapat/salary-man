@@ -94,7 +94,7 @@ export default function AddPage() {
   const quickAmounts = [50, 100, 200, 500, 1000, 2000];
 
   return (
-    <main className="pb-24 min-h-screen">
+    <main className="pb-24 min-h-screen gradient-radial">
       <div className="max-w-lg mx-auto px-4 safe-top">
         {/* Header */}
         <div className="pt-6 pb-4 flex items-center justify-between">

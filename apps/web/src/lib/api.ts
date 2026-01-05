@@ -56,6 +56,7 @@ export interface AccountSummary {
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
+    credentials: 'include', // Send cookies with requests
     headers: {
       'Content-Type': 'application/json',
       ...options?.headers,
@@ -63,6 +64,11 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   });
 
   if (!res.ok) {
+    if (res.status === 401) {
+      // Redirect to login if unauthorized
+      window.location.href = '/login';
+      throw new Error('Unauthorized');
+    }
     throw new Error(`API Error: ${res.status} ${res.statusText}`);
   }
 

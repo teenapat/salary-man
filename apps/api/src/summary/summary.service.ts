@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface MonthlySummary {
@@ -7,7 +7,7 @@ export interface MonthlySummary {
   income: number;
   expense: number;
   net: number;
-  hasCarriedOver: boolean; // ย้ายยอดไปเดือนหน้าแล้วหรือยัง
+  hasCarriedOver: boolean;
 }
 
 export interface AccountSummary {
@@ -32,9 +32,21 @@ export interface AccountSummary {
 export class SummaryService {
   constructor(private prisma: PrismaService) {}
 
-  async getMonthlySummary(year: number, month: number): Promise<MonthlySummary> {
+  // Helper to get user's account IDs
+  private async getUserAccountIds(userId: string): Promise<string[]> {
+    const accounts = await this.prisma.account.findMany({
+      where: { userId },
+      select: { id: true },
+    });
+    return accounts.map((a) => a.id);
+  }
+
+  async getMonthlySummary(userId: string, year: number, month: number): Promise<MonthlySummary> {
+    const accountIds = await this.getUserAccountIds(userId);
+
     const transactions = await this.prisma.transaction.findMany({
       where: {
+        accountId: { in: accountIds },
         postedYear: year,
         postedMonth: month,
       },
@@ -52,9 +64,10 @@ export class SummaryService {
       }
     });
 
-    // เช็คว่าย้ายยอดจากเดือนนี้ไปเดือนหน้าแล้วหรือยัง
+    // Check if carried over from this month
     const carryOverExists = await this.prisma.transaction.findFirst({
       where: {
+        accountId: { in: accountIds },
         isCarryOver: true,
         carryFromYear: year,
         carryFromMonth: month,
@@ -71,11 +84,11 @@ export class SummaryService {
     };
   }
 
-  async getYearSummary(year: number): Promise<MonthlySummary[]> {
+  async getYearSummary(userId: string, year: number): Promise<MonthlySummary[]> {
     const summaries: MonthlySummary[] = [];
 
     for (let month = 1; month <= 12; month++) {
-      const summary = await this.getMonthlySummary(year, month);
+      const summary = await this.getMonthlySummary(userId, year, month);
       summaries.push(summary);
     }
 
@@ -83,6 +96,7 @@ export class SummaryService {
   }
 
   async getAccountSummary(
+    userId: string,
     accountId: string,
     year: number,
     month: number,
@@ -92,7 +106,11 @@ export class SummaryService {
     });
 
     if (!account) {
-      throw new Error('Account not found');
+      throw new NotFoundException('Account not found');
+    }
+
+    if (account.userId !== userId) {
+      throw new ForbiddenException('Access denied');
     }
 
     const transactions = await this.prisma.transaction.findMany({
@@ -128,16 +146,16 @@ export class SummaryService {
     };
   }
 
-  async getAllAccountsSummary(year: number, month: number): Promise<AccountSummary[]> {
+  async getAllAccountsSummary(userId: string, year: number, month: number): Promise<AccountSummary[]> {
     const accounts = await this.prisma.account.findMany({
-      where: { isActive: true },
+      where: { userId, isActive: true },
       orderBy: { sortOrder: 'asc' },
     });
 
     const summaries: AccountSummary[] = [];
 
     for (const account of accounts) {
-      const summary = await this.getAccountSummary(account.id, year, month);
+      const summary = await this.getAccountSummary(userId, account.id, year, month);
       if (summary.transactions.length > 0) {
         summaries.push(summary);
       }
@@ -146,12 +164,12 @@ export class SummaryService {
     return summaries;
   }
 
-  async getUpcomingInstallments(months: number = 6): Promise<any[]> {
+  async getUpcomingInstallments(userId: string, months: number = 6): Promise<any[]> {
+    const accountIds = await this.getUserAccountIds(userId);
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
 
-    // Calculate end date
     let endYear = currentYear;
     let endMonth = currentMonth + months;
     while (endMonth > 12) {
@@ -161,6 +179,7 @@ export class SummaryService {
 
     const transactions = await this.prisma.transaction.findMany({
       where: {
+        accountId: { in: accountIds },
         installmentGroupId: { not: null },
         OR: [
           {
@@ -184,7 +203,6 @@ export class SummaryService {
       ],
     });
 
-    // Group by installmentGroupId
     const grouped = new Map<string, any[]>();
     transactions.forEach((tx) => {
       const groupId = tx.installmentGroupId!;
@@ -209,4 +227,3 @@ export class SummaryService {
     }));
   }
 }
-

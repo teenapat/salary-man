@@ -1,10 +1,14 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Cookie parser
+  app.use(cookieParser());
 
   // Enable CORS
   app.enableCors({
@@ -28,6 +32,7 @@ async function bootstrap() {
     .setTitle('salary-man API')
     .setDescription('Personal finance tracker API')
     .setVersion('1.0')
+    .addCookieAuth('token')
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
@@ -38,4 +43,3 @@ async function bootstrap() {
   console.log(`📚 API docs available at http://localhost:${port}/api`);
 }
 bootstrap();
-
