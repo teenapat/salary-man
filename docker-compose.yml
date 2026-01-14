@@ -5,11 +5,9 @@ services:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: salary-man-db
     environment:
-      - ACCEPT_EULA=Y
-      - MSSQL_SA_PASSWORD=${DB_PASSWORD}
-      - MSSQL_PID=Express
-    ports:
-      - "1433:1433"
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${DB_PASSWORD}
+      MSSQL_PID: Express
     volumes:
       - mssql-data:/var/opt/mssql
     networks:
@@ -21,15 +19,12 @@ services:
       retries: 10
 
   api:
-    build:
-      context: ./apps/api
-      dockerfile: Dockerfile
+    build: ./apps/api
     container_name: salary-man-api
-    environment:
-      - DATABASE_URL=sqlserver://${DB_HOST}:${DB_PORT};database=${DB_NAME};user=sa;password=${DB_PASSWORD};encrypt=true;trustServerCertificate=true
-      - PORT=3001
-    ports:
-      - "3001:3001"
+    env_file:
+      - .env
+    expose:
+      - "3001"
     depends_on:
       mssql:
         condition: service_healthy
@@ -37,14 +32,12 @@ services:
       - salary-man-network
 
   web:
-    build:
-      context: ./apps/web
-      dockerfile: Dockerfile
+    build: ./apps/web
     container_name: salary-man-web
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:3001
-    ports:
-      - "3000:3000"
+    env_file:
+      - .env
+    expose:
+      - "3000"
     depends_on:
       - api
     networks:
@@ -56,4 +49,3 @@ volumes:
 networks:
   salary-man-network:
     driver: bridge
-
